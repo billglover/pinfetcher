@@ -19,7 +19,8 @@ func main() {
 	fmt.Println("From: ", lastWeek)
 	fmt.Println("To: ", yesterday)
 
-	// print command line arguments
-	fmt.Println("--api-key", *apiKeyPtr)
-	fmt.Println("-d", *daysOffsetPtr)
+	// url
+	url := fmt.Sprintf("https://api.pinboard.in/v1/posts/all?auth_token=%s&fromdt=%s&todt=%s&format=json", *apiKeyPtr, lastWeek, yesterday)
+	fmt.Println(url)
+
 }	
