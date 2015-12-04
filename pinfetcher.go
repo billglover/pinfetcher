@@ -3,6 +3,9 @@ package main
 import "flag"
 import "fmt"
 import "time"
+import "io/ioutil"
+import "log"
+import "net/http"
 
 func main() {
 	// --api-key
@@ -22,5 +25,16 @@ func main() {
 	// url
 	url := fmt.Sprintf("https://api.pinboard.in/v1/posts/all?auth_token=%s&fromdt=%s&todt=%s&format=json", *apiKeyPtr, lastWeek, yesterday)
 	fmt.Println(url)
+
+	res, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	robots, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("%s", robots)
 
 }	
