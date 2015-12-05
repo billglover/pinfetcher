@@ -3,38 +3,69 @@ package main
 import "flag"
 import "fmt"
 import "time"
-import "io/ioutil"
 import "log"
 import "net/http"
+import "encoding/json"
+import "text/template"
+import "os"
+
+// pinboard data structures
+type PinJson struct {
+	Href string
+	Description string
+	Extended string
+	Meta string
+	Hash string
+	Time string
+	Shared string
+	ToRead string
+	Tags string
+}
 
 func main() {
-	// --api-key
+
+	// set-up command line flags
 	apiKeyPtr := flag.String("api-key", "", "your PinBoard API key")
 	daysOffsetPtr := flag.Int("d", 7, "number of days to retrieve")
 	flag.Parse()
 
-	// time
+	// calculate the the date range to fetch
 	currentTime := time.Now().Local()
-	yesterdayTime := currentTime.AddDate(0, 0, -1)
-	lastWeekTime := currentTime.AddDate(0, 0, -1 * *daysOffsetPtr -1)
-	yesterday := yesterdayTime.Round(time.Hour*24).Format(time.RFC3339)
-	lastWeek := lastWeekTime.Round(time.Hour*24).Format(time.RFC3339)
-	fmt.Println("From: ", lastWeek)
-	fmt.Println("To: ", yesterday)
+	toTime := currentTime.AddDate(0, 0, -1)
+	fromTime := currentTime.AddDate(0, 0, -1 * *daysOffsetPtr -1)
+
+	// round timestamps to nearest 24 hours and convert to strings
+	toTimeString := toTime.Round(time.Hour*24).Format(time.RFC3339)
+	fromTimeString := fromTime.Round(time.Hour*24).Format(time.RFC3339)
 
 	// url
-	url := fmt.Sprintf("https://api.pinboard.in/v1/posts/all?auth_token=%s&fromdt=%s&todt=%s&format=json", *apiKeyPtr, lastWeek, yesterday)
-	fmt.Println(url)
+	url := fmt.Sprintf("https://api.pinboard.in/v1/posts/all?auth_token=%s&fromdt=%s&todt=%s&format=json", *apiKeyPtr, fromTimeString, toTimeString)
 
-	res, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err)
-	}
-	robots, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("%s", robots)
+	// fetch latest pins
+	data := []PinJson{}
+    err := getJson(url, &data)
+    if err != nil {
+    	log.Fatal(err)
+    }
+    println(len(data))
 
-}	
+    // print markdown
+    t := template.New("default.tpl")
+    t, _ = t.ParseFiles("default.tpl")
+    err = t.Execute(os.Stdout, data)
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+
+// source: http://stackoverflow.com/questions/17156371/how-to-get-json-response-in-golang
+func getJson(url string, target interface{}) error {
+    r, err := http.Get(url)
+    if err != nil {
+        return err
+    }
+
+    defer r.Body.Close()
+
+    return json.NewDecoder(r.Body).Decode(target)
+}
