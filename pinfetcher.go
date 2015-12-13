@@ -9,6 +9,7 @@ import "encoding/json"
 import "text/template"
 import "os"
 import "regexp"
+import "strings"
 
 // pinboard data structures
 type PinJson struct {
@@ -21,6 +22,14 @@ type PinJson struct {
 	Shared string
 	ToRead string
 	Tags string
+	TagArray []string
+}
+
+type Pin struct {
+	Href string
+	Description string
+	Extended string
+	Tags []string
 }
 
 func main() {
@@ -56,6 +65,12 @@ func main() {
     if err != nil {
     	log.Fatal(err)
     }
+
+    // structure the pins
+    for i := range data {
+  		pin := &data[i] // we need to reference the original slice
+  		pin.TagArray = strings.Split(pin.Tags, " ")
+	}
 
     // print markdown
     t := template.New(*templateFilePtr)
