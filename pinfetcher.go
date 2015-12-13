@@ -8,6 +8,7 @@ import "net/http"
 import "encoding/json"
 import "text/template"
 import "os"
+import "regexp"
 
 // pinboard data structures
 type PinJson struct {
@@ -29,6 +30,13 @@ func main() {
 	daysOffsetPtr := flag.Int("d", 7, "number of days to retrieve")
 	templateFilePtr := flag.String("t", "default.tpl", "template file")
 	flag.Parse()
+
+	// confirm we have a valid API key
+	r, _ := regexp.Compile("^[[:alnum:]]*:[0-9A-F]*")
+	if !r.MatchString(*apiKeyPtr) {
+		log.Fatal("Invalid API key provided.")
+	}
+
 
 	// calculate the the date range to fetch
 	currentTime := time.Now().Local()
