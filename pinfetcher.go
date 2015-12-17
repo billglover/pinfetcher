@@ -10,6 +10,7 @@ import "text/template"
 import "os"
 import "regexp"
 import "strings"
+import "net/url"
 
 // pinboard data structures
 type PinJson struct {
@@ -38,7 +39,9 @@ func main() {
 	apiKeyPtr := flag.String("api-key", "", "your PinBoard API key")
 	daysOffsetPtr := flag.Int("d", 7, "number of days to retrieve")
 	templateFilePtr := flag.String("t", "default.tpl", "template file")
+	tagsPtr := flag.String("tags", "", "a space separated list of up to three tags")
 	flag.Parse()
+
 
 	// confirm we have a valid API key
 	r, _ := regexp.Compile("^[[:alnum:]]*:[0-9A-F]*")
@@ -47,17 +50,33 @@ func main() {
 	}
 
 
+
 	// calculate the the date range to fetch
 	currentTime := time.Now().Local()
 	toTime := currentTime.AddDate(0, 0, -1)
 	fromTime := currentTime.AddDate(0, 0, -1 * *daysOffsetPtr -1)
 
+
 	// round timestamps to nearest 24 hours and convert to strings
 	toTimeString := toTime.Round(time.Hour*24).Format(time.RFC3339)
 	fromTimeString := fromTime.Round(time.Hour*24).Format(time.RFC3339)
 
+
 	// construct the url
-	url := fmt.Sprintf("https://api.pinboard.in/v1/posts/all?auth_token=%s&fromdt=%s&todt=%s&format=json", *apiKeyPtr, fromTimeString, toTimeString)
+	v := url.Values{}
+	v.Add("auth_token", *apiKeyPtr)
+	v.Add("fromdt", fromTimeString)
+	v.Add("todt", toTimeString)
+	v.Add("format", "json")
+
+	// format the tags (if provided) for passing to the API
+	if *tagsPtr != "" {
+		tags := prepareTags(tagsPtr)
+		v.Add("tag", tags)
+	}
+
+	url := fmt.Sprintf("https://api.pinboard.in/v1/posts/all?%s", v.Encode())
+	log.Print(url)
 
 	// fetch latest pins
 	data := []PinJson{}
@@ -90,4 +109,13 @@ func getJson(url string, target interface{}) error {
 
     defer r.Body.Close()
     return json.NewDecoder(r.Body).Decode(target)
+}
+
+func prepareTags(tagsPtr *string) string {
+	tags := strings.Split(*tagsPtr, " ")
+	if len(tags) > 3 {
+		tags = tags [:3]
+		log.Print("The Pinboard API supports a maximum of 3 tags. Only the first three will be used: ", tags)
+	}
+	return strings.Join(tags, " ")
 }
