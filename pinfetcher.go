@@ -1,7 +1,6 @@
 package main
 
 import "flag"
-import "fmt"
 import "time"
 import "log"
 import "net/http"
@@ -50,7 +49,6 @@ func main() {
 	}
 
 
-
 	// calculate the the date range to fetch
 	currentTime := time.Now().Local()
 	toTime := currentTime.AddDate(0, 0, -1)
@@ -63,33 +61,40 @@ func main() {
 
 
 	// construct the url
-	v := url.Values{}
-	v.Add("auth_token", *apiKeyPtr)
-	v.Add("fromdt", fromTimeString)
-	v.Add("todt", toTimeString)
-	v.Add("format", "json")
+	u, err := url.Parse("https://api.pinboard.in/v1/posts/all")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	q := u.Query()
+	q.Add("auth_token", *apiKeyPtr)
+	q.Add("fromdt", fromTimeString)
+	q.Add("todt", toTimeString)
+	q.Add("format", "json")
 
 	// format the tags (if provided) for passing to the API
 	if *tagsPtr != "" {
 		tags := prepareTags(tagsPtr)
-		v.Add("tag", tags)
+		q.Add("tag", tags)
 	}
 
-	url := fmt.Sprintf("https://api.pinboard.in/v1/posts/all?%s", v.Encode())
-	log.Print(url)
+	u.RawQuery = q.Encode()
+
 
 	// fetch latest pins
 	data := []PinJson{}
-    err := getJson(url, &data)
+    err = getJson(u, &data)
     if err != nil {
     	log.Fatal(err)
     }
+
 
     // structure the pins
     for i := range data {
   		pin := &data[i] // we need to reference the original slice
   		pin.TagArray = strings.Split(pin.Tags, " ")
 	}
+
 
     // print markdown
     t := template.New(*templateFilePtr)
@@ -100,9 +105,10 @@ func main() {
     }
 }
 
+
 // source: http://stackoverflow.com/questions/17156371/how-to-get-json-response-in-golang
-func getJson(url string, target interface{}) error {
-    r, err := http.Get(url)
+func getJson(u *url.URL, target interface{}) error {
+    r, err := http.Get(u.String())
     if err != nil {
         return err
     }
@@ -110,6 +116,7 @@ func getJson(url string, target interface{}) error {
     defer r.Body.Close()
     return json.NewDecoder(r.Body).Decode(target)
 }
+
 
 func prepareTags(tagsPtr *string) string {
 	tags := strings.Split(*tagsPtr, " ")
